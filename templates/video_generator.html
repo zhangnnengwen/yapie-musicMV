@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RunningHub AI应用视频生成器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .step {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9ff;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .step-number {
+            width: 28px;
+            height: 28px;
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+            margin-left: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .app-info {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .app-info.show {
+            display: block;
+        }
+        
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .app-cover {
+            width: 80px;
+            height: 80px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        
+        .app-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .node-list {
+            margin-top: 20px;
+        }
+        
+        .node-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .node-name {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .node-type {
+            font-size: 12px;
+            color: #999;
+            background: #e0e0e0;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .node-description {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .node-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .node-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .upload-area {
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .upload-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        
+        .upload-text {
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .file-info {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-info.show {
+            display: flex;
+        }
+        
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .result-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9ff;
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .result-section.show {
+            display: block;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .status-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .video-result {
+            text-align: center;
+        }
+        
+        .video-result video {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .download-btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .download-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .hint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎬 RunningHub AI应用视频生成器</h1>
+            <p>调用ComfyUI工作流，自定义参数生成音乐MV视频</p>
+        </div>
+        
+        <!-- 步骤1：配置API -->
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                配置API信息
+            </div>
+            <div class="form-group">
+                <label for="apiKey">API Key *</label>
+                <input type="text" id="apiKey" placeholder="请输入你的RunningHub API Key">
+                <div class="hint">在RunningHub个人中心获取API Key</div>
+            </div>
+            <div class="form-group">
+                <label for="webappId">WebApp ID *</label>
+                <input type="text" id="webappId" placeholder="请输入AI应用的WebApp ID">
+                <div class="hint">在AI应用详情页查看WebApp ID</div>
+            </div>
+            <button class="btn btn-primary" id="loadAppBtn" onclick="loadAppInfo()">
+                加载应用信息
+            </button>
+        </div>
+        
+        <!-- 步骤2：配置参数 -->
+        <div class="step" id="paramStep" style="display: none;">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                配置工作流参数
+            </div>
+            <div class="app-info" id="appInfo">
+                <div class="app-header">
+                    <img class="app-cover" id="appCover" src="" alt="应用封面">
+                    <div class="app-name" id="appName"></div>
+                </div>
+                <div class="node-list" id="nodeList">
+                    <!-- 动态生成节点输入 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 步骤3：生成视频 -->
+        <div class="step" id="generateStep" style="display: none;">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                生成视频
+            </div>
+            <button class="btn btn-primary" id="generateBtn" onclick="generateVideo()">
+                🚀 开始生成视频
+            </button>
+        </div>
+        
+        <!-- 结果展示 -->
+        <div class="result-section" id="resultSection">
+            <div class="step-title">
+                <span class="step-number">✓</span>
+                生成进度
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-text" id="statusText">正在初始化...</div>
+            <div class="video-result" id="videoResult"></div>
+        </div>
+    </div>
+    
+    <script>
+        let appNodeInfoList = [];
+        let uploadedFiles = {};
+        
+        async function loadAppInfo() {
+            const apiKey = document.getElementById('apiKey').value;
+            const webappId = document.getElementById('webappId').value;
+            
+            if (!apiKey || !webappId) {
+                alert('请填写API Key和WebApp ID');
+                return;
+            }
+            
+            const btn = document.getElementById('loadAppBtn');
+            btn.disabled = true;
+            btn.textContent = '加载中...';
+            
+            try {
+                const response = await fetch(`/api/get-app-info?apiKey=${apiKey}&webappId=${webappId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    appNodeInfoList = result.nodeInfoList;
+                    
+                    // 显示应用信息
+                    document.getElementById('appName').textContent = result.webappName;
+                    if (result.covers && result.covers.length > 0) {
+                        document.getElementById('appCover').src = result.covers[0].url;
+                    }
+                    
+                    // 生成节点输入表单
+                    const nodeList = document.getElementById('nodeList');
+                    nodeList.innerHTML = '';
+                    
+                    appNodeInfoList.forEach((node, index) => {
+                        const nodeItem = document.createElement('div');
+                        nodeItem.className = 'node-item';
+                        nodeItem.dataset.index = index;
+                        
+                        const fieldType = node.fieldType || 'STRING';
+                        let inputHtml = '';
+                        
+                        if (fieldType === 'IMAGE') {
+                            const uploadId = `upload_${index}`;
+                            inputHtml = `
+                                <div class="upload-area" onclick="document.getElementById('${uploadId}').click()">
+                                    <div class="upload-icon">📷</div>
+                                    <div class="upload-text">点击上传图片</div>
+                                    <input type="file" id="${uploadId}" class="hidden" accept="image/*" 
+                                           onchange="handleFileUpload(${index}, this)">
+                                    <div class="file-info" id="fileInfo_${index}">
+                                        <span id="fileName_${index}"></span>
+                                        <button type="button" class="remove-btn" onclick="removeFile(${index}, event)">×</button>
+                                    </div>
+                                </div>
+                            `;
+                        } else if (fieldType === 'LIST' && node.fieldData) {
+                            try {
+                                const options = JSON.parse(node.fieldData);
+                                inputHtml = `<select class="node-input" id="input_${index}">`;
+                                options.forEach(opt => {
+                                    if (opt.name && opt.index) {
+                                        const selected = opt.default === opt.index ? 'selected' : '';
+                                        inputHtml += `<option value="${opt.index}" ${selected}>${opt.name}</option>`;
+                                    }
+                                });
+                                inputHtml += '</select>';
+                            } catch {
+                                inputHtml = `<input type="text" class="node-input" id="input_${index}" value="${node.fieldValue || ''}">`;
+                            }
+                        } else {
+                            inputHtml = `<textarea class="node-input" id="input_${index}" rows="3">${node.fieldValue || ''}</textarea>`;
+                        }
+                        
+                        nodeItem.innerHTML = `
+                            <div class="node-header">
+                                <span class="node-name">${node.description || node.fieldName}</span>
+                                <span class="node-type">${fieldType}</span>
+                            </div>
+                            <div class="node-description">${node.descriptionEn || ''}</div>
+                            ${inputHtml}
+                        `;
+                        
+                        nodeList.appendChild(nodeItem);
+                    });
+                    
+                    document.getElementById('appInfo').classList.add('show');
+                    document.getElementById('paramStep').style.display = 'block';
+                    document.getElementById('generateStep').style.display = 'block';
+                    
+                    btn.textContent = '应用信息已加载';
+                } else {
+                    alert('加载失败: ' + result.message);
+                    btn.disabled = false;
+                    btn.textContent = '加载应用信息';
+                }
+            } catch (error) {
+                alert('加载失败: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '加载应用信息';
+            }
+        }
+        
+        function handleFileUpload(index, input) {
+            const file = input.files[0];
+            if (file) {
+                uploadedFiles[index] = file;
+                document.getElementById(`fileName_${index}`).textContent = file.name;
+                document.getElementById(`fileInfo_${index}`).classList.add('show');
+            }
+        }
+        
+        function removeFile(index, event) {
+            event.stopPropagation();
+            delete uploadedFiles[index];
+            document.getElementById(`fileInfo_${index}`).classList.remove('show');
+            document.querySelector(`#upload_${index}`).value = '';
+        }
+        
+        async function generateVideo() {
+            const apiKey = document.getElementById('apiKey').value;
+            const webappId = document.getElementById('webappId').value;
+            
+            // 构建nodeInfoList
+            const nodeInfoList = appNodeInfoList.map((node, index) => {
+                const fieldType = node.fieldType || 'STRING';
+                let fieldValue = node.fieldValue || '';
+                
+                if (fieldType === 'IMAGE') {
+                    // 图片通过文件上传处理
+                    fieldValue = uploadedFiles[index] ? uploadedFiles[index].name : '';
+                } else {
+                    const input = document.getElementById(`input_${index}`);
+                    if (input) {
+                        fieldValue = input.value;
+                    }
+                }
+                
+                return {
+                    nodeId: node.nodeId,
+                    fieldName: node.fieldName,
+                    fieldValue: fieldValue
+                };
+            });
+            
+            const formData = new FormData();
+            formData.append('apiKey', apiKey);
+            formData.append('webappId', webappId);
+            formData.append('nodeInfoList', JSON.stringify(nodeInfoList));
+            
+            // 添加文件
+            Object.keys(uploadedFiles).forEach(index => {
+                formData.append(`file_${index}`, uploadedFiles[index]);
+            });
+            
+            const btn = document.getElementById('generateBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ 生成中...';
+            
+            document.getElementById('resultSection').classList.add('show');
+            document.getElementById('progressFill').style.width = '10%';
+            document.getElementById('statusText').textContent = '正在创建任务...';
+            
+            try {
+                const response = await fetch('/api/generate-video', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    pollTaskStatus(result.taskId, apiKey);
+                } else {
+                    document.getElementById('statusText').textContent = '错误: ' + result.message;
+                    btn.disabled = false;
+                    btn.textContent = '🚀 开始生成视频';
+                }
+            } catch (error) {
+                document.getElementById('statusText').textContent = '错误: ' + error.message;
+                btn.disabled = false;
+                btn.textContent = '🚀 开始生成视频';
+            }
+        }
+        
+        async function pollTaskStatus(taskId, apiKey) {
+            const progressFill = document.getElementById('progressFill');
+            const statusText = document.getElementById('statusText');
+            const videoResult = document.getElementById('videoResult');
+            const btn = document.getElementById('generateBtn');
+            
+            let progress = 20;
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/task-status/${taskId}?apiKey=${apiKey}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        const taskStatus = result.taskStatus;
+                        const currentProgress = result.progress || progress;
+                        
+                        if (taskStatus === 'RUNNING') {
+                            progress = Math.min(progress + 5, 90);
+                            progressFill.style.width = progress + '%';
+                            statusText.textContent = `正在生成视频... ${currentProgress}%`;
+                        } else if (taskStatus === 'SUCCESS') {
+                            clearInterval(interval);
+                            progressFill.style.width = '100%';
+                            statusText.textContent = '视频生成成功！';
+                            
+                            if (result.outputs && result.outputs.length > 0) {
+                                const output = result.outputs[0];
+                                if (output.url) {
+                                    videoResult.innerHTML = `
+                                        <video controls autoplay loop>
+                                            <source src="${output.url}" type="video/mp4">
+                                            您的浏览器不支持视频播放
+                                        </video>
+                                        <br>
+                                        <a href="${output.url}" class="download-btn" target="_blank">下载视频</a>
+                                    `;
+                                }
+                            }
+                            
+                            btn.disabled = false;
+                            btn.textContent = '🚀 开始生成视频';
+                        } else if (taskStatus === 'FAILED') {
+                            clearInterval(interval);
+                            progressFill.style.width = '0%';
+                            statusText.textContent = '视频生成失败';
+                            btn.disabled = false;
+                            btn.textContent = '🚀 开始生成视频';
+                        }
+                    }
+                } catch (error) {
+                    console.error('轮询状态失败:', error);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
