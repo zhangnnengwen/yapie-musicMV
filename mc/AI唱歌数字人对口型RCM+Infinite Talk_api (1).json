@@ -1,0 +1,514 @@
+{
+  "120": {
+    "inputs": {
+      "model": "InfiniteTalk/Wan2_1-InfiniTetalk-Single_fp16.safetensors"
+    },
+    "class_type": "MultiTalkModelLoader",
+    "_meta": {
+      "title": "Multi/InfiniteTalk Model Loader"
+    }
+  },
+  "122": {
+    "inputs": {
+      "model": "aniWan14BFp8E4m3fn_i2v480pNew.safetensors",
+      "base_precision": "fp16_fast",
+      "quantization": "disabled",
+      "load_device": "offload_device",
+      "attention_mode": "sageattn",
+      "rms_norm_function": "default",
+      "block_swap_args": [
+        "134",
+        0
+      ],
+      "lora": [
+        "138",
+        0
+      ],
+      "multitalk_model": [
+        "120",
+        0
+      ]
+    },
+    "class_type": "WanVideoModelLoader",
+    "_meta": {
+      "title": "WanVideo Model Loader"
+    }
+  },
+  "128": {
+    "inputs": {
+      "steps": 4,
+      "cfg": 1.0000000000000002,
+      "shift": 11.000000000000002,
+      "seed": 344446788752662,
+      "force_offload": true,
+      "scheduler": "unipc",
+      "riflex_freq_index": 0,
+      "denoise_strength": 1,
+      "batched_cfg": false,
+      "rope_function": "comfy",
+      "start_step": 0,
+      "end_step": -1,
+      "add_noise_to_samples": true,
+      "model": [
+        "122",
+        0
+      ],
+      "image_embeds": [
+        "192",
+        0
+      ],
+      "text_embeds": [
+        "346",
+        0
+      ],
+      "feta_args": [
+        "212",
+        0
+      ],
+      "cache_args": [
+        "215",
+        0
+      ],
+      "slg_args": [
+        "213",
+        0
+      ],
+      "experimental_args": [
+        "214",
+        0
+      ],
+      "multitalk_embeds": [
+        "194",
+        0
+      ]
+    },
+    "class_type": "WanVideoSampler",
+    "_meta": {
+      "title": "WanVideo Sampler"
+    }
+  },
+  "129": {
+    "inputs": {
+      "model_name": "Wan2_1_VAE_bf16.safetensors",
+      "precision": "bf16",
+      "use_cpu_cache": false,
+      "verbose": false
+    },
+    "class_type": "WanVideoVAELoader",
+    "_meta": {
+      "title": "WanVideo VAE Loader"
+    }
+  },
+  "130": {
+    "inputs": {
+      "enable_vae_tiling": false,
+      "tile_x": 272,
+      "tile_y": 272,
+      "tile_stride_x": 144,
+      "tile_stride_y": 128,
+      "normalization": "default",
+      "vae": [
+        "129",
+        0
+      ],
+      "samples": [
+        "128",
+        0
+      ]
+    },
+    "class_type": "WanVideoDecode",
+    "_meta": {
+      "title": "WanVideo Decode"
+    }
+  },
+  "131": {
+    "inputs": {
+      "frame_rate": 25,
+      "loop_count": 0,
+      "filename_prefix": "WanVideo2_1_multitalk",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "no_preview": false,
+      "images": [
+        "251",
+        0
+      ],
+      "audio": [
+        "352",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "Video Combine 🎥🅥🅗🅢"
+    }
+  },
+  "134": {
+    "inputs": {
+      "blocks_to_swap": 40,
+      "offload_img_emb": false,
+      "offload_txt_emb": false,
+      "use_non_blocking": true,
+      "vace_blocks_to_swap": 0,
+      "prefetch_blocks": 0,
+      "block_swap_debug": false
+    },
+    "class_type": "WanVideoBlockSwap",
+    "_meta": {
+      "title": "WanVideo Block Swap"
+    }
+  },
+  "137": {
+    "inputs": {
+      "model": "TencentGameMate/chinese-wav2vec2-base",
+      "base_precision": "fp16",
+      "load_device": "main_device"
+    },
+    "class_type": "DownloadAndLoadWav2VecModel",
+    "_meta": {
+      "title": "(Down)load Wav2Vec Model"
+    }
+  },
+  "138": {
+    "inputs": {
+      "lora": "Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors",
+      "strength": 1.0000000000000002,
+      "low_mem_load": false,
+      "merge_loras": false,
+      "prev_lora": [
+        "255",
+        0
+      ]
+    },
+    "class_type": "WanVideoLoraSelect",
+    "_meta": {
+      "title": "WanVideo Lora Select"
+    }
+  },
+  "173": {
+    "inputs": {
+      "clip_name": "clip_vision_h.safetensors"
+    },
+    "class_type": "CLIPVisionLoader",
+    "_meta": {
+      "title": "Load CLIP Vision"
+    }
+  },
+  "192": {
+    "inputs": {
+      "width": [
+        "204",
+        3
+      ],
+      "height": [
+        "204",
+        4
+      ],
+      "frame_window_size": 81,
+      "motion_frame": 9,
+      "force_offload": false,
+      "colormatch": "disabled",
+      "tiled_vae": false,
+      "mode": "infinitetalk",
+      "output_path": "",
+      "vae": [
+        "129",
+        0
+      ],
+      "start_image": [
+        "204",
+        0
+      ],
+      "clip_embeds": [
+        "193",
+        0
+      ]
+    },
+    "class_type": "WanVideoImageToVideoMultiTalk",
+    "_meta": {
+      "title": "WanVideo Long I2V Multi/InfiniteTalk"
+    }
+  },
+  "193": {
+    "inputs": {
+      "strength_1": 1,
+      "strength_2": 1,
+      "crop": "center",
+      "combine_embeds": "average",
+      "force_offload": true,
+      "tiles": 0,
+      "ratio": 0.5000000000000001,
+      "clip_vision": [
+        "173",
+        0
+      ],
+      "image_1": [
+        "204",
+        0
+      ]
+    },
+    "class_type": "WanVideoClipVisionEncode",
+    "_meta": {
+      "title": "WanVideo ClipVision Encode"
+    }
+  },
+  "194": {
+    "inputs": {
+      "normalize_loudness": true,
+      "num_frames": [
+        "248",
+        0
+      ],
+      "fps": 25,
+      "audio_scale": 1,
+      "audio_cfg_scale": 1,
+      "multi_audio_type": "para",
+      "add_noise_floor": false,
+      "smooth_transients": false,
+      "wav2vec_model": [
+        "137",
+        0
+      ],
+      "audio_1": [
+        "261",
+        3
+      ]
+    },
+    "class_type": "MultiTalkWav2VecEmbeds",
+    "_meta": {
+      "title": "Multi/InfiniteTalk Wav2vec2 Embeds"
+    }
+  },
+  "204": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "crop",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "348",
+        0
+      ],
+      "background_color": "#000000",
+      "image": [
+        "343",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2",
+    "_meta": {
+      "title": "LayerUtility: ImageScaleByAspectRatio V2"
+    }
+  },
+  "212": {
+    "inputs": {
+      "weight": 2,
+      "start_percent": 0,
+      "end_percent": 1
+    },
+    "class_type": "WanVideoEnhanceAVideo",
+    "_meta": {
+      "title": "WanVideo Enhance-A-Video"
+    }
+  },
+  "213": {
+    "inputs": {
+      "blocks": "10",
+      "start_percent": 0.1,
+      "end_percent": 1
+    },
+    "class_type": "WanVideoSLG",
+    "_meta": {
+      "title": "WanVideo SLG"
+    }
+  },
+  "214": {
+    "inputs": {
+      "video_attention_split_steps": "",
+      "cfg_zero_star": true,
+      "use_zero_init": false,
+      "zero_star_steps": 0,
+      "use_fresca": false,
+      "fresca_scale_low": 1,
+      "fresca_scale_high": 1.25,
+      "fresca_freq_cutoff": 20,
+      "use_tcfg": false,
+      "raag_alpha": 0,
+      "bidirectional_sampling": false,
+      "temporal_score_rescaling": false,
+      "tsr_k": 0.95,
+      "tsr_sigma": 1
+    },
+    "class_type": "WanVideoExperimentalArgs",
+    "_meta": {
+      "title": "WanVideo Experimental Args"
+    }
+  },
+  "215": {
+    "inputs": {
+      "easycache_thresh": 0.015,
+      "start_step": 2,
+      "end_step": -1,
+      "cache_device": "offload_device"
+    },
+    "class_type": "WanVideoEasyCache",
+    "_meta": {
+      "title": "WanVideo EasyCache"
+    }
+  },
+  "243": {
+    "inputs": {
+      "audio": "784c24aeee9ebb05028ec5ec1a9b5869560bb49919ede5d4770fed5555cfd0ab.mp3",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "Load Audio"
+    }
+  },
+  "246": {
+    "inputs": {
+      "audio": [
+        "352",
+        0
+      ]
+    },
+    "class_type": "RH_GetAudioDuration",
+    "_meta": {
+      "title": "RH Get Audio Duration"
+    }
+  },
+  "248": {
+    "inputs": {
+      "value": "a*25+25",
+      "a": [
+        "249",
+        0
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "🔧 Simple Math"
+    }
+  },
+  "249": {
+    "inputs": {
+      "float": [
+        "246",
+        0
+      ]
+    },
+    "class_type": "Float to Int",
+    "_meta": {
+      "title": "Float to Int"
+    }
+  },
+  "251": {
+    "inputs": {
+      "purge_cache": true,
+      "purge_models": true,
+      "anything": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: PurgeVRAM V2",
+    "_meta": {
+      "title": "LayerUtility: Purge VRAM V2"
+    }
+  },
+  "255": {
+    "inputs": {
+      "lora": "Wan_2_1_T2V_14B_rCM_lora_average_rank_83_bf16.safetensors",
+      "strength": 0.5000000000000001,
+      "low_mem_load": false,
+      "merge_loras": false
+    },
+    "class_type": "WanVideoLoraSelect",
+    "_meta": {
+      "title": "WanVideo Lora Select"
+    }
+  },
+  "261": {
+    "inputs": {
+      "chunk_fade_shape": "linear",
+      "chunk_length": 10,
+      "chunk_overlap": 0.1,
+      "audio": [
+        "352",
+        0
+      ]
+    },
+    "class_type": "AudioSeparation",
+    "_meta": {
+      "title": "AudioSeparation"
+    }
+  },
+  "343": {
+    "inputs": {
+      "image": "dadd0163961d6ed53832eddecf181fbba75ec891a950e2d7d39c1fafa0f6e009.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "346": {
+    "inputs": {
+      "model_name": "umt5-xxl-enc-bf16.safetensors",
+      "precision": "bf16",
+      "positive_prompt": [
+        "349",
+        0
+      ],
+      "negative_prompt": "bright tones, overexposed, static, blurred details, subtitles, style, works, paintings, images, static, overall gray, worst quality, low quality, JPEG compression residue, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn faces, deformed, disfigured, misshapen limbs, fused fingers, still picture, messy background, three legs, many people in the background, walking backwards",
+      "quantization": "disabled",
+      "use_disk_cache": true,
+      "device": "gpu"
+    },
+    "class_type": "WanVideoTextEncodeCached",
+    "_meta": {
+      "title": "WanVideo TextEncode Cached"
+    }
+  },
+  "348": {
+    "inputs": {
+      "value": 720
+    },
+    "class_type": "Int",
+    "_meta": {
+      "title": "Int"
+    }
+  },
+  "349": {
+    "inputs": {
+      "value": "人正在唱歌"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Text String (Multiline)"
+    }
+  },
+  "352": {
+    "inputs": {
+      "start": 0,
+      "end": -1,
+      "audio": [
+        "243",
+        0
+      ]
+    },
+    "class_type": "SoundFlow_TrimAudio",
+    "_meta": {
+      "title": "Audio Trim"
+    }
+  }
+}
