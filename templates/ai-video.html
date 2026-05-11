@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RunningHub ComfyUI 视频生成器</title>
+    <title>RunningHub MV 视频生成器</title>
     <style>
         * {
             box-sizing: border-box;
@@ -15,20 +15,22 @@
             min-height: 100vh;
             font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
             color: #172033;
-            background:
-                radial-gradient(circle at 18% 20%, rgba(255, 129, 121, 0.22), transparent 28%),
-                radial-gradient(circle at 84% 14%, rgba(78, 205, 196, 0.2), transparent 30%),
-                linear-gradient(135deg, #f7f8ff 0%, #eef6f4 46%, #fff4ee 100%);
-            padding: 36px 20px;
+            background: #f4f7f6;
+            padding: 32px 18px;
+        }
+
+        .topbar,
+        .container {
+            width: min(1040px, 100%);
+            margin: 0 auto;
         }
 
         .topbar {
-            width: min(980px, 100%);
-            margin: 0 auto 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 16px;
+            margin-bottom: 20px;
         }
 
         .brand {
@@ -40,112 +42,215 @@
 
         .back-link {
             padding: 8px 12px;
-            border: 1px solid rgba(23, 32, 51, 0.12);
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(23, 32, 51, 0.14);
+            border-radius: 8px;
+            background: #fff;
             color: #526173;
             font-size: 13px;
             text-decoration: none;
         }
 
         .container {
-            max-width: 980px;
-            margin: 0 auto;
-            padding: 32px;
+            padding: 28px;
             border: 1px solid rgba(23, 32, 51, 0.1);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.82);
-            box-shadow: 0 18px 42px rgba(23, 32, 51, 0.1);
+            background: #fff;
+            box-shadow: 0 16px 36px rgba(23, 32, 51, 0.08);
         }
 
         .header {
-            margin-bottom: 30px;
-            padding-bottom: 22px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
             border-bottom: 1px solid rgba(23, 32, 51, 0.08);
         }
 
         .header h1 {
-            color: #172033;
-            font-size: 32px;
+            margin-bottom: 8px;
+            font-size: 30px;
             line-height: 1.2;
-            margin-bottom: 10px;
             letter-spacing: 0;
         }
 
-        .header p {
+        .header p,
+        .hint,
+        .status-text,
+        .file-name {
             color: #526173;
-            font-size: 15px;
-            line-height: 1.6;
+            font-size: 13px;
+            line-height: 1.55;
         }
 
-        .step,
-        .result-section {
-            margin-bottom: 22px;
-            padding: 24px;
+        .mode-tabs {
+            display: inline-flex;
+            flex: 0 0 auto;
+            padding: 4px;
+            border: 1px solid rgba(23, 32, 51, 0.12);
+            border-radius: 8px;
+            background: #f8faf9;
+        }
+
+        .mode-tab {
+            min-height: 36px;
+            padding: 0 14px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: #526173;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .mode-tab.active {
+            background: #172033;
+            color: #fff;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .section {
+            margin-bottom: 18px;
+            padding: 22px;
             border: 1px solid rgba(23, 32, 51, 0.1);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.66);
+            background: #fbfcfc;
         }
 
-        .step-title {
+        .section-title {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 18px;
-            color: #172033;
-            font-size: 18px;
+            margin-bottom: 16px;
+            font-size: 17px;
             font-weight: 800;
         }
 
         .step-number {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             flex: 0 0 auto;
-            border-radius: 999px;
+            border-radius: 8px;
             background: #0f766e;
             color: #fff;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 800;
         }
 
         .form-group {
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
 
-        .form-group label {
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 7px;
             color: #172033;
             font-size: 14px;
             font-weight: 800;
         }
 
-        .form-group input[type="text"],
-        .form-group input[type="number"],
-        .form-group select,
-        .form-group textarea,
-        .node-input {
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
             width: 100%;
-            min-height: 44px;
+            min-height: 42px;
             padding: 10px 12px;
             border: 1px solid rgba(23, 32, 51, 0.14);
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.9);
+            background: #fff;
             color: #172033;
             font-size: 14px;
             outline: none;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus,
-        .node-input:focus {
+        textarea {
+            min-height: 88px;
+            resize: vertical;
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
             border-color: #0f766e;
             box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .upload-area {
+            min-height: 116px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+            border: 1.5px dashed rgba(23, 32, 51, 0.22);
+            border-radius: 8px;
+            background: #fff;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #0f766e;
+            background: rgba(15, 118, 110, 0.04);
+        }
+
+        .upload-title {
+            color: #172033;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .file-name {
+            min-height: 20px;
+            word-break: break-all;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .advanced {
+            display: none;
+        }
+
+        .advanced.show,
+        .split-only.show {
+            display: block;
+        }
+
+        .split-only {
+            display: none;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         .btn {
@@ -156,177 +261,42 @@
             font-size: 14px;
             font-weight: 800;
             cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
         }
 
-        .btn-primary,
-        .download-btn {
+        .btn-primary {
             background: #172033;
             color: #fff;
-            box-shadow: 0 12px 24px rgba(23, 32, 51, 0.16);
-        }
-
-        .btn-primary:hover:not(:disabled),
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 16px 30px rgba(23, 32, 51, 0.2);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+            box-shadow: 0 10px 20px rgba(23, 32, 51, 0.14);
         }
 
         .btn-secondary {
-            margin-left: 10px;
-            border: 1px solid rgba(23, 32, 51, 0.12);
+            border: 1px solid rgba(23, 32, 51, 0.14);
             background: #fff;
             color: #526173;
         }
 
-        .app-info {
-            display: none;
-            margin-top: 14px;
-            padding: 18px;
-            border: 1px solid rgba(23, 32, 51, 0.1);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.72);
-        }
-
-        .app-info.show,
-        .result-section.show {
-            display: block;
-        }
-
-        .app-header {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .app-cover {
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 1px solid rgba(23, 32, 51, 0.1);
-        }
-
-        .app-name {
-            color: #172033;
-            font-size: 20px;
-            font-weight: 800;
-        }
-
-        .node-list {
-            margin-top: 18px;
-        }
-
-        .node-item {
-            margin-bottom: 16px;
-            padding: 16px;
-            border: 1px solid rgba(23, 32, 51, 0.09);
-            border-radius: 8px;
-            background: rgba(247, 248, 255, 0.72);
-        }
-
-        .node-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
-        }
-
-        .node-name {
-            color: #172033;
-            font-weight: 800;
-        }
-
-        .node-type {
-            padding: 4px 8px;
-            border-radius: 999px;
-            background: rgba(15, 118, 110, 0.1);
-            color: #0f766e;
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .node-description,
-        .hint,
-        .upload-text,
-        .status-text {
-            color: #526173;
-            font-size: 13px;
-        }
-
-        .node-description {
-            margin-bottom: 10px;
-        }
-
-        .upload-area {
-            border: 1.5px dashed rgba(23, 32, 51, 0.22);
-            border-radius: 8px;
-            padding: 22px;
-            text-align: center;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.62);
-            transition: all 0.2s ease;
-        }
-
-        .upload-area:hover {
-            border-color: #0f766e;
-            background: rgba(78, 205, 196, 0.09);
-        }
-
-        .upload-icon {
-            color: #526173;
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-
-        .file-info {
-            display: none;
-            align-items: center;
-            gap: 10px;
-            margin-top: 12px;
-            padding: 10px;
-            border: 1px solid rgba(23, 32, 51, 0.08);
-            border-radius: 8px;
-            background: #fff;
-            color: #172033;
-        }
-
-        .file-info.show {
-            display: flex;
-        }
-
-        .remove-btn {
-            width: 22px;
-            height: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #ffccc7;
-            border-radius: 999px;
-            background: #fff2f0;
-            color: #c2410c;
-            cursor: pointer;
-            font-size: 12px;
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .result-section {
             display: none;
-            margin-top: 26px;
+            padding: 22px;
+            border: 1px solid rgba(23, 32, 51, 0.1);
+            border-radius: 8px;
+            background: #fbfcfc;
+        }
+
+        .result-section.show {
+            display: block;
         }
 
         .progress-bar {
             width: 100%;
             height: 10px;
-            margin-bottom: 14px;
+            margin: 14px 0;
             border-radius: 999px;
             background: rgba(23, 32, 51, 0.1);
             overflow: hidden;
@@ -337,19 +307,19 @@
             height: 100%;
             border-radius: 999px;
             background: #0f766e;
-            transition: width 0.3s;
+            transition: width 0.25s ease;
         }
 
-        .status-text,
         .video-result {
+            margin-top: 16px;
             text-align: center;
-            margin-bottom: 15px;
         }
 
         .video-result video {
-            max-width: 100%;
+            width: 100%;
+            max-height: 560px;
             border-radius: 8px;
-            box-shadow: 0 18px 42px rgba(23, 32, 51, 0.12);
+            background: #000;
         }
 
         .download-btn {
@@ -357,43 +327,46 @@
             align-items: center;
             justify-content: center;
             min-height: 42px;
-            margin-top: 15px;
-            padding: 0 18px;
+            margin-top: 14px;
+            padding: 0 16px;
             border-radius: 8px;
+            background: #172033;
+            color: #fff;
             text-decoration: none;
             font-weight: 800;
-            transition: all 0.2s ease;
         }
 
-        .hidden {
-            display: none;
+        .meta-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+            color: #526173;
+            font-size: 13px;
         }
 
-        .hint {
-            margin-top: 6px;
-        }
-
-        @media (max-width: 720px) {
+        @media (max-width: 860px) {
             body {
-                padding: 24px 14px;
+                padding: 22px 12px;
             }
 
+            .header,
             .topbar {
                 align-items: flex-start;
                 flex-direction: column;
             }
 
+            .grid,
+            .upload-grid,
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
             .container {
-                padding: 22px;
+                padding: 18px;
             }
 
             .header h1 {
-                font-size: 28px;
-            }
-
-            .node-header {
-                align-items: flex-start;
-                flex-direction: column;
+                font-size: 26px;
             }
         }
     </style>
@@ -403,150 +376,219 @@
         <a class="brand" href="/">音乐 MV 工具</a>
         <a class="back-link" href="/">返回首页</a>
     </div>
-    <div class="container">
+
+    <main class="container">
         <div class="header">
-            <h1>🎬 RunningHub ComfyUI 视频生成器</h1>
-            <p>上传图片到工作流节点，调用 RunningHub ComfyUI 工作流生成视频</p>
-        </div>
-        
-        <!-- 步骤1：配置API -->
-        <div class="step">
-            <div class="step-title">
-                <span class="step-number">1</span>
-                配置API信息
+            <div>
+                <h1>RunningHub MV 视频生成器</h1>
+                <p>上传图片和音频生成视频；长音频可自动寻找低能量无歌词切点，分两段并发生成后合并。</p>
             </div>
-            <div class="form-group">
-                <label for="apiKey">API Key *</label>
-                <input type="text" id="apiKey" placeholder="请输入你的RunningHub API Key">
-                <div class="hint">在RunningHub个人中心获取API Key</div>
-            </div>
-            <div class="form-group">
-                <label for="workflowId">Workflow ID *</label>
-                <input type="text" id="workflowId" value="2025258518208737281">
-                <div class="hint">当前默认使用 RunningHub 工作流 2025258518208737281</div>
-            </div>
-            <div class="form-group">
-                <label for="imageNodeId">图片工作节点 *</label>
-                <input type="text" id="imageNodeId" value="343">
-                <div class="hint">对应工作流里的 Load Image 节点 #343，字段名为 image</div>
-            </div>
-            <div class="form-group">
-                <label for="audioNodeId">音频工作节点 *</label>
-                <input type="text" id="audioNodeId" value="243">
-                <div class="hint">对应工作流里的 Load Audio 节点 #243，字段名为 audio</div>
+            <div class="mode-tabs" aria-label="生成模式">
+                <button type="button" class="mode-tab active" id="singleModeBtn" onclick="setMode('single')">单段生成</button>
+                <button type="button" class="mode-tab" id="splitModeBtn" onclick="setMode('split')">自动分段</button>
             </div>
         </div>
-        
-        <!-- 步骤2：配置参数 -->
-        <div class="step" id="paramStep">
-            <div class="step-title">
-                <span class="step-number">2</span>
-                上传输入文件
+
+        <div class="grid">
+            <div>
+                <section class="section">
+                    <div class="section-title">
+                        <span class="step-number">1</span>
+                        RunningHub 配置
+                    </div>
+                    <div class="form-group">
+                        <label for="apiKey">API Key *</label>
+                        <input type="text" id="apiKey" autocomplete="off" placeholder="输入 RunningHub API Key">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="workflowId">Workflow ID *</label>
+                            <input type="text" id="workflowId" value="2025258518208737281">
+                        </div>
+                        <div class="form-group">
+                            <label for="retainSeconds">结果保留秒数</label>
+                            <input type="number" id="retainSeconds" min="0" placeholder="可选">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="imageNodeId">图片节点 ID *</label>
+                            <input type="text" id="imageNodeId" value="343">
+                            <div class="hint">默认字段名 image</div>
+                        </div>
+                        <div class="form-group">
+                            <label for="audioNodeId">音频节点 ID *</label>
+                            <input type="text" id="audioNodeId" value="243">
+                            <div class="hint">默认字段名 audio</div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary" onclick="toggleAdvanced()">高级参数</button>
+                    <div class="advanced" id="advancedPanel">
+                        <div class="form-row" style="margin-top: 16px;">
+                            <div class="form-group">
+                                <label for="instanceType">Instance Type</label>
+                                <input type="text" id="instanceType" placeholder="default / plus，可选">
+                            </div>
+                            <div class="form-group">
+                                <label for="accessPassword">访问密码</label>
+                                <input type="text" id="accessPassword" placeholder="加密应用可填">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="nodeInfoList">额外 nodeInfoList JSON</label>
+                            <textarea id="nodeInfoList">[]</textarea>
+                            <div class="hint">图片和音频节点会自动写入；这里只填 prompt、seed、风格等额外节点。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <div class="section-title">
+                        <span class="step-number">2</span>
+                        上传输入文件
+                    </div>
+                    <div class="upload-grid">
+                        <label class="upload-area" for="imageFile">
+                            <span class="upload-title">上传参考图片 *</span>
+                            <span class="file-name" id="imageFileName">未选择文件</span>
+                            <input type="file" id="imageFile" class="hidden" accept="image/*" onchange="handleFile(this, 'image')">
+                        </label>
+                        <label class="upload-area" for="audioFile">
+                            <span class="upload-title">上传完整音频 *</span>
+                            <span class="file-name" id="audioFileName">未选择文件</span>
+                            <input type="file" id="audioFile" class="hidden" accept="audio/*,.mp3,.wav,.flac,.m4a" onchange="handleFile(this, 'audio')">
+                        </label>
+                    </div>
+                    <div class="split-only" id="splitUploadPanel" style="margin-top: 14px;">
+                        <label class="upload-area" for="lrcFile">
+                            <span class="upload-title">上传 LRC 歌词文件</span>
+                            <span class="file-name" id="lrcFileName">可选；上传后优先避开歌词段</span>
+                            <input type="file" id="lrcFile" class="hidden" accept=".lrc,text/plain" onchange="handleFile(this, 'lrc')">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="section split-only" id="splitConfigPanel">
+                    <div class="section-title">
+                        <span class="step-number">3</span>
+                        分段与合并参数
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="overlapSeconds">Overlap 秒数</label>
+                            <input type="number" id="overlapSeconds" min="0" step="0.1" value="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label for="xfadeSeconds">交叉淡化秒数</label>
+                            <input type="number" id="xfadeSeconds" min="0" step="0.1" value="0.5">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="searchWindow">中点搜索窗口</label>
+                            <input type="number" id="searchWindow" min="5" step="1" value="45">
+                        </div>
+                        <div class="form-group">
+                            <label for="minPartSeconds">最短分段秒数</label>
+                            <input type="number" id="minPartSeconds" min="1" step="1" value="30">
+                        </div>
+                    </div>
+                    <div class="hint">最终视频会使用原始完整音频作为音轨，减少两段音频边界错位。</div>
+                </section>
             </div>
-            <div class="upload-area" onclick="document.getElementById('imageFile').click()">
-                <div class="upload-icon">📷</div>
-                <div class="upload-text">点击上传图片</div>
-                <input type="file" id="imageFile" class="hidden" accept="image/*" onchange="handleImageUpload(this)">
-                <div class="file-info" id="imageFileInfo">
-                    <span id="imageFileName"></span>
-                    <button type="button" class="remove-btn" onclick="removeImage(event)">×</button>
-                </div>
-            </div>
-            <div class="upload-area" style="margin-top: 14px;" onclick="document.getElementById('audioFile').click()">
-                <div class="upload-icon">🎵</div>
-                <div class="upload-text">点击上传音频</div>
-                <input type="file" id="audioFile" class="hidden" accept="audio/*,.mp3,.wav,.flac" onchange="handleAudioUpload(this)">
-                <div class="file-info" id="audioFileInfo">
-                    <span id="audioFileName"></span>
-                    <button type="button" class="remove-btn" onclick="removeAudio(event)">×</button>
-                </div>
-            </div>
+
+            <aside>
+                <section class="section">
+                    <div class="section-title">
+                        <span class="step-number">4</span>
+                        开始生成
+                    </div>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-primary" id="generateBtn" onclick="startGeneration()">开始生成视频</button>
+                    </div>
+                    <div class="meta-list" id="modeNotes">
+                        <div>当前模式：单段生成。</div>
+                        <div>适合短音频或 RunningHub 不易超时的任务。</div>
+                    </div>
+                </section>
+
+                <section class="result-section" id="resultSection">
+                    <div class="section-title">
+                        <span class="step-number">5</span>
+                        生成进度
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="status-text" id="statusText">等待开始</div>
+                    <div class="meta-list" id="splitMeta"></div>
+                    <div class="video-result" id="videoResult"></div>
+                </section>
+            </aside>
         </div>
-        
-        <!-- 步骤3：生成视频 -->
-        <div class="step" id="generateStep">
-            <div class="step-title">
-                <span class="step-number">3</span>
-                生成视频
-            </div>
-            <button class="btn btn-primary" id="generateBtn" onclick="generateVideo()">
-                🚀 开始生成视频
-            </button>
-        </div>
-        
-        <!-- 结果展示 -->
-        <div class="result-section" id="resultSection">
-            <div class="step-title">
-                <span class="step-number">✓</span>
-                生成进度
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="status-text" id="statusText">正在初始化...</div>
-            <div class="video-result" id="videoResult"></div>
-        </div>
-    </div>
-    
+    </main>
+
     <script>
         let selectedImage = null;
         let selectedAudio = null;
+        let selectedLrc = null;
+        let currentMode = 'single';
+        let activePoller = null;
 
-        function handleImageUpload(input) {
-            const file = input.files[0];
-            if (!file) {
-                return;
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('singleModeBtn').classList.toggle('active', mode === 'single');
+            document.getElementById('splitModeBtn').classList.toggle('active', mode === 'split');
+            document.querySelectorAll('.split-only').forEach((node) => {
+                node.classList.toggle('show', mode === 'split');
+            });
+            document.getElementById('modeNotes').innerHTML = mode === 'split'
+                ? '<div>当前模式：自动分段。</div><div>会自动找切点、并发生成两段，再用原始音频合并。</div>'
+                : '<div>当前模式：单段生成。</div><div>适合短音频或 RunningHub 不易超时的任务。</div>';
+        }
+
+        function toggleAdvanced() {
+            document.getElementById('advancedPanel').classList.toggle('show');
+        }
+
+        function handleFile(input, type) {
+            const file = input.files[0] || null;
+            if (type === 'image') {
+                selectedImage = file;
+                document.getElementById('imageFileName').textContent = file ? file.name : '未选择文件';
+            } else if (type === 'audio') {
+                selectedAudio = file;
+                document.getElementById('audioFileName').textContent = file ? file.name : '未选择文件';
+            } else if (type === 'lrc') {
+                selectedLrc = file;
+                document.getElementById('lrcFileName').textContent = file ? file.name : '可选；上传后优先避开歌词段';
             }
-
-            selectedImage = file;
-            document.getElementById('imageFileName').textContent = file.name;
-            document.getElementById('imageFileInfo').classList.add('show');
         }
 
-        function removeImage(event) {
-            event.stopPropagation();
-            selectedImage = null;
-            document.getElementById('imageFileInfo').classList.remove('show');
-            document.getElementById('imageFile').value = '';
-        }
-
-        function handleAudioUpload(input) {
-            const file = input.files[0];
-            if (!file) {
-                return;
-            }
-
-            selectedAudio = file;
-            document.getElementById('audioFileName').textContent = file.name;
-            document.getElementById('audioFileInfo').classList.add('show');
-        }
-
-        function removeAudio(event) {
-            event.stopPropagation();
-            selectedAudio = null;
-            document.getElementById('audioFileInfo').classList.remove('show');
-            document.getElementById('audioFile').value = '';
-        }
-
-        async function generateVideo() {
+        function getBaseFormData() {
             const apiKey = document.getElementById('apiKey').value.trim();
             const workflowId = document.getElementById('workflowId').value.trim();
             const imageNodeId = document.getElementById('imageNodeId').value.trim();
             const audioNodeId = document.getElementById('audioNodeId').value.trim();
 
             if (!apiKey || !workflowId || !imageNodeId || !audioNodeId) {
-                alert('请填写 API Key、Workflow ID、图片工作节点和音频工作节点');
-                return;
+                throw new Error('请填写 API Key、Workflow ID、图片节点 ID 和音频节点 ID');
             }
-
             if (!selectedImage) {
-                alert('请先上传图片');
-                return;
+                throw new Error('请先上传参考图片');
+            }
+            if (!selectedAudio) {
+                throw new Error('请先上传完整音频');
             }
 
-            if (!selectedAudio) {
-                alert('请先上传音频');
-                return;
+            let nodeInfoList = [];
+            try {
+                nodeInfoList = JSON.parse(document.getElementById('nodeInfoList').value || '[]');
+                if (!Array.isArray(nodeInfoList)) {
+                    throw new Error();
+                }
+            } catch (error) {
+                throw new Error('额外 nodeInfoList 必须是 JSON 数组');
             }
 
             const formData = new FormData();
@@ -556,103 +598,186 @@
             formData.append('imageFieldName', 'image');
             formData.append('audioNodeId', audioNodeId);
             formData.append('audioFieldName', 'audio');
-            formData.append('nodeInfoList', JSON.stringify([]));
+            formData.append('nodeInfoList', JSON.stringify(nodeInfoList));
             formData.append('image', selectedImage);
             formData.append('audio', selectedAudio);
 
+            const retainSeconds = document.getElementById('retainSeconds').value.trim();
+            const instanceType = document.getElementById('instanceType').value.trim();
+            const accessPassword = document.getElementById('accessPassword').value.trim();
+            if (retainSeconds) formData.append('retainSeconds', retainSeconds);
+            if (instanceType) formData.append('instanceType', instanceType);
+            if (accessPassword) formData.append('accessPassword', accessPassword);
+            return formData;
+        }
+
+        function setBusy(isBusy) {
             const btn = document.getElementById('generateBtn');
-            btn.disabled = true;
-            btn.textContent = '⏳ 生成中...';
+            btn.disabled = isBusy;
+            btn.textContent = isBusy ? '生成中...' : '开始生成视频';
+        }
 
+        function showProgress(progress, message) {
             document.getElementById('resultSection').classList.add('show');
-            document.getElementById('progressFill').style.width = '10%';
-            document.getElementById('statusText').textContent = '正在上传图片和音频并创建任务...';
+            document.getElementById('progressFill').style.width = `${Math.max(0, Math.min(progress, 100))}%`;
+            document.getElementById('statusText').textContent = message;
+        }
+
+        function resetResult() {
+            if (activePoller) {
+                clearInterval(activePoller);
+                activePoller = null;
+            }
             document.getElementById('videoResult').innerHTML = '';
+            document.getElementById('splitMeta').innerHTML = '';
+            showProgress(8, '正在提交任务...');
+        }
 
+        async function startGeneration() {
             try {
-                const response = await fetch('/api/generate-video', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    document.getElementById('statusText').textContent = `任务已创建：${result.taskId}`;
-                    pollTaskStatus(result.taskId, apiKey);
+                resetResult();
+                setBusy(true);
+                if (currentMode === 'split') {
+                    await generateSplitVideo();
                 } else {
-                    document.getElementById('statusText').textContent = '错误: ' + result.message;
-                    btn.disabled = false;
-                    btn.textContent = '🚀 开始生成视频';
+                    await generateSingleVideo();
                 }
             } catch (error) {
-                document.getElementById('statusText').textContent = '错误: ' + error.message;
-                btn.disabled = false;
-                btn.textContent = '🚀 开始生成视频';
+                showProgress(0, `错误：${error.message}`);
+                setBusy(false);
             }
         }
 
-        async function pollTaskStatus(taskId, apiKey) {
-            const progressFill = document.getElementById('progressFill');
-            const statusText = document.getElementById('statusText');
-            const videoResult = document.getElementById('videoResult');
-            const btn = document.getElementById('generateBtn');
-            
+        async function generateSingleVideo() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const formData = getBaseFormData();
+            showProgress(12, '正在上传图片和音频，并创建 RunningHub 任务...');
+
+            const response = await fetch('/api/generate-video', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || '任务创建失败');
+            }
+
+            showProgress(20, `任务已创建：${result.taskId}`);
+            pollRunningHubTask(result.taskId, apiKey);
+        }
+
+        async function generateSplitVideo() {
+            const formData = getBaseFormData();
+            if (selectedLrc) {
+                formData.append('lrc', selectedLrc);
+            }
+            formData.append('overlapSeconds', document.getElementById('overlapSeconds').value || '1.0');
+            formData.append('xfadeSeconds', document.getElementById('xfadeSeconds').value || '0.5');
+            formData.append('searchWindow', document.getElementById('searchWindow').value || '45');
+            formData.append('minPartSeconds', document.getElementById('minPartSeconds').value || '30');
+
+            showProgress(10, '正在保存文件并启动分段任务...');
+            const response = await fetch('/api/generate-split-video', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.message || '分段任务创建失败');
+            }
+            showProgress(12, `分段任务已启动：${result.jobId}`);
+            pollSplitJob(result.jobId);
+        }
+
+        function pollRunningHubTask(taskId, apiKey) {
             let progress = 20;
-            const interval = setInterval(async () => {
+            activePoller = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/task-status/${taskId}?apiKey=${apiKey}`);
+                    const response = await fetch(`/api/task-status/${taskId}?apiKey=${encodeURIComponent(apiKey)}`);
                     const result = await response.json();
+                    if (!result.success) {
+                        showProgress(progress, `查询失败：${result.message}`);
+                        return;
+                    }
 
-                    if (result.success) {
-                        const taskStatus = result.taskStatus;
-                        const currentProgress = result.progress || progress;
-
-                        if (taskStatus === 'QUEUED') {
-                            progress = Math.min(progress + 2, 40);
-                            progressFill.style.width = progress + '%';
-                            statusText.textContent = '任务排队中...';
-                        } else if (taskStatus === 'RUNNING') {
-                            progress = Math.min(progress + 5, 90);
-                            progressFill.style.width = progress + '%';
-                            statusText.textContent = `正在生成视频... ${currentProgress}%`;
-                        } else if (taskStatus === 'SUCCESS') {
-                            clearInterval(interval);
-                            progressFill.style.width = '100%';
-                            statusText.textContent = '视频生成成功！';
-                            
-                            if (result.outputs && result.outputs.length > 0) {
-                                const output = result.outputs[0];
-                                if (output.url) {
-                                    videoResult.innerHTML = `
-                                        <video controls autoplay loop>
-                                            <source src="${output.url}" type="video/mp4">
-                                            您的浏览器不支持视频播放
-                                        </video>
-                                        <br>
-                                        <a href="${output.url}" class="download-btn" target="_blank">下载视频</a>
-                                    `;
-                                }
-                            } else if (result.resultUrl) {
-                                videoResult.innerHTML = `<a href="${result.resultUrl}" class="download-btn" target="_blank">打开生成结果</a>`;
-                            }
-                            
-                            btn.disabled = false;
-                            btn.textContent = '🚀 开始生成视频';
-                        } else if (taskStatus === 'FAILED') {
-                            clearInterval(interval);
-                            progressFill.style.width = '0%';
-                            statusText.textContent = '视频生成失败' + (result.message ? `: ${result.message}` : '');
-                            btn.disabled = false;
-                            btn.textContent = '🚀 开始生成视频';
-                        }
-                    } else {
-                        statusText.textContent = '查询失败: ' + result.message;
+                    if (result.taskStatus === 'QUEUED') {
+                        progress = Math.min(progress + 2, 40);
+                        showProgress(progress, 'RunningHub 任务排队中...');
+                    } else if (result.taskStatus === 'RUNNING') {
+                        progress = Math.min(progress + 5, 90);
+                        showProgress(progress, `RunningHub 正在生成... ${result.progress || progress}%`);
+                    } else if (result.taskStatus === 'SUCCESS') {
+                        clearInterval(activePoller);
+                        activePoller = null;
+                        showProgress(100, '视频生成成功');
+                        renderRemoteResult(result);
+                        setBusy(false);
+                    } else if (result.taskStatus === 'FAILED') {
+                        clearInterval(activePoller);
+                        activePoller = null;
+                        showProgress(0, `视频生成失败${result.message ? `：${result.message}` : ''}`);
+                        setBusy(false);
                     }
                 } catch (error) {
-                    console.error('轮询状态失败:', error);
+                    console.error(error);
                 }
             }, 3000);
+        }
+
+        function pollSplitJob(jobId) {
+            activePoller = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/split-job-status/${jobId}`);
+                    const result = await response.json();
+                    if (!result.success) {
+                        showProgress(0, `查询失败：${result.message}`);
+                        return;
+                    }
+
+                    showProgress(result.progress || 0, result.message || '分段任务处理中...');
+                    if (result.split) {
+                        document.getElementById('splitMeta').innerHTML = `
+                            <div>切点：${Number(result.split.split_seconds).toFixed(2)} 秒</div>
+                            <div>音频总长：${Number(result.split.audio_duration).toFixed(2)} 秒</div>
+                            <div>切点能量：${result.split.energy_db} dB</div>
+                        `;
+                    }
+
+                    if (result.status === 'SUCCESS') {
+                        clearInterval(activePoller);
+                        activePoller = null;
+                        renderLocalResult(result);
+                        setBusy(false);
+                    } else if (result.status === 'FAILED') {
+                        clearInterval(activePoller);
+                        activePoller = null;
+                        showProgress(0, `分段生成失败：${result.message}`);
+                        setBusy(false);
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+            }, 3000);
+        }
+
+        function renderRemoteResult(result) {
+            const output = result.outputs && result.outputs.length > 0 ? result.outputs[0] : null;
+            const url = output && output.url ? output.url : result.resultUrl;
+            if (!url) {
+                document.getElementById('videoResult').innerHTML = '<div class="status-text">没有找到视频输出地址</div>';
+                return;
+            }
+            document.getElementById('videoResult').innerHTML = `
+                <video controls>
+                    <source src="${url}" type="video/mp4">
+                    当前浏览器不支持视频播放
+                </video>
+                <a href="${url}" class="download-btn" target="_blank" rel="noreferrer">打开生成结果</a>
+            `;
+        }
+
+        function renderLocalResult(result) {
+            document.getElementById('videoResult').innerHTML = `
+                <video controls>
+                    <source src="${result.preview_url}" type="video/mp4">
+                    当前浏览器不支持视频播放
+                </video>
+                <a href="${result.download_url}" class="download-btn">下载合并视频</a>
+            `;
         }
     </script>
 </body>
