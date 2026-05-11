@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台使用记录</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 28px 18px;
+            background: #f4f7f6;
+            color: #172033;
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+
+        .wrap {
+            width: min(1180px, 100%);
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            letter-spacing: 0;
+        }
+
+        a {
+            color: #0f766e;
+            text-decoration: none;
+            font-weight: 800;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .panel {
+            padding: 20px;
+            border: 1px solid rgba(23, 32, 51, 0.1);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 12px 28px rgba(23, 32, 51, 0.06);
+        }
+
+        .panel h2 {
+            margin-bottom: 14px;
+            font-size: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: #526173;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 6px;
+            background: rgba(15, 118, 110, 0.1);
+            color: #0f766e;
+            font-weight: 800;
+        }
+
+        .status.failed {
+            background: #fff2f0;
+            color: #c2410c;
+        }
+
+        .muted {
+            color: #526173;
+        }
+
+        .details {
+            max-width: 360px;
+            color: #526173;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .panel {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div>
+                <h1>后台使用记录</h1>
+                <div class="muted">查看谁在使用哪个功能，以及最近任务状态。</div>
+            </div>
+            <a href="/ai-video">返回生成器</a>
+        </div>
+
+        <div class="grid">
+            <section class="panel">
+                <h2>功能统计</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>功能</th>
+                            <th>状态</th>
+                            <th>次数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.totals %}
+                        <tr>
+                            <td>{{ row.feature }}</td>
+                            <td><span class="status {{ 'failed' if row.status == 'failed' else '' }}">{{ row.status }}</span></td>
+                            <td>{{ row.count }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">暂无记录</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="panel">
+                <h2>用户 / IP 汇总</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>用户标识或 IP</th>
+                            <th>次数</th>
+                            <th>最近使用</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data.users %}
+                        <tr>
+                            <td>{{ row.user_key or 'unknown' }}</td>
+                            <td>{{ row.count }}</td>
+                            <td>{{ row.last_seen }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="muted">暂无记录</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        </div>
+
+        <section class="panel">
+            <h2>最近调用</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>功能</th>
+                        <th>状态</th>
+                        <th>用户</th>
+                        <th>IP</th>
+                        <th>Job / Task</th>
+                        <th>详情</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.recent %}
+                    <tr>
+                        <td>{{ row.created_at }}</td>
+                        <td>{{ row.feature }}</td>
+                        <td><span class="status {{ 'failed' if row.status == 'failed' else '' }}">{{ row.status }}</span></td>
+                        <td>{{ row.user_id or '-' }}</td>
+                        <td>{{ row.ip_address or '-' }}</td>
+                        <td>
+                            <div>{{ row.job_id or '-' }}</div>
+                            <div class="muted">{{ row.task_id or '' }}</div>
+                        </td>
+                        <td class="details">{{ row.details or '' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="muted">暂无记录</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+</body>
+</html>

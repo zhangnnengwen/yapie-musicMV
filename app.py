@@ -3,11 +3,13 @@
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -44,6 +46,152 @@ os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
 
 split_jobs = {}
 split_jobs_lock = threading.Lock()
+USAGE_DB_PATH = os.path.join(app.config["OUTPUT_FOLDER"], "usage.db")
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin")
+
+
+def _now_iso():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _init_usage_db():
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at TEXT NOT NULL,
+                feature TEXT NOT NULL,
+                status TEXT NOT NULL,
+                user_id TEXT,
+                ip_address TEXT,
+                user_agent TEXT,
+                job_id TEXT,
+                task_id TEXT,
+                details TEXT
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_created_at ON usage_events(created_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_feature ON usage_events(feature)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_user_id ON usage_events(user_id)")
+
+
+def _client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",", 1)[0].strip()
+    return request.remote_addr or ""
+
+
+def _usage_user_id():
+    return (
+        request.headers.get("X-User-Id")
+        or request.form.get("userId")
+        or request.form.get("user_id")
+        or request.args.get("userId")
+        or request.args.get("user_id")
+        or ""
+    )
+
+
+def _record_usage(feature, status="started", *, job_id=None, task_id=None, details=None):
+    try:
+        payload = details or {}
+        with sqlite3.connect(USAGE_DB_PATH) as conn:
+            conn.execute(
+                """
+                INSERT INTO usage_events (
+                    created_at, feature, status, user_id, ip_address,
+                    user_agent, job_id, task_id, details
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    _now_iso(),
+                    feature,
+                    status,
+                    _usage_user_id(),
+                    _client_ip(),
+                    request.headers.get("User-Agent", ""),
+                    job_id,
+                    task_id,
+                    json.dumps(payload, ensure_ascii=False),
+                ),
+            )
+    except Exception as exc:
+        app.logger.warning("Failed to record usage event: %s", exc)
+
+
+def _record_job_usage(job_id, feature, status, *, details=None):
+    try:
+        with sqlite3.connect(USAGE_DB_PATH) as conn:
+            conn.execute(
+                """
+                INSERT INTO usage_events (
+                    created_at, feature, status, user_id, ip_address,
+                    user_agent, job_id, task_id, details
+                )
+                SELECT ?, ?, ?, user_id, ip_address, user_agent, ?, NULL, ?
+                FROM usage_events
+                WHERE job_id = ?
+                ORDER BY id ASC
+                LIMIT 1
+                """,
+                (
+                    _now_iso(),
+                    feature,
+                    status,
+                    job_id,
+                    json.dumps(details or {}, ensure_ascii=False),
+                    job_id,
+                ),
+            )
+    except Exception as exc:
+        app.logger.warning("Failed to record job usage event: %s", exc)
+
+
+def _admin_authorized():
+    token = request.args.get("token") or request.headers.get("X-Admin-Token")
+    return bool(ADMIN_TOKEN) and token == ADMIN_TOKEN
+
+
+def _usage_summary(limit=100):
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        totals = [dict(row) for row in conn.execute(
+            """
+            SELECT feature, status, COUNT(*) AS count
+            FROM usage_events
+            GROUP BY feature, status
+            ORDER BY count DESC, feature ASC
+            """
+        )]
+        users = [dict(row) for row in conn.execute(
+            """
+            SELECT COALESCE(NULLIF(user_id, ''), ip_address) AS user_key,
+                   COUNT(*) AS count,
+                   MAX(created_at) AS last_seen
+            FROM usage_events
+            GROUP BY user_key
+            ORDER BY count DESC, last_seen DESC
+            LIMIT 50
+            """
+        )]
+        recent = [dict(row) for row in conn.execute(
+            """
+            SELECT id, created_at, feature, status, user_id, ip_address,
+                   user_agent, job_id, task_id, details
+            FROM usage_events
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )]
+    return {"totals": totals, "users": users, "recent": recent}
+
+
+_init_usage_db()
 
 
 def _runninghub_post(path, *, json_body=None, data=None, files=None, timeout=60):
@@ -121,19 +269,46 @@ def _normalize_runninghub_outputs(outputs):
     return normalized
 
 
+def _file_meta(file_storage):
+    if not file_storage:
+        return None
+    return {
+        "filename": file_storage.filename,
+        "content_type": file_storage.mimetype,
+        "content_length": request.content_length,
+    }
+
+
 @app.route("/")
 def home():
+    _record_usage("home_page", "view")
     return render_template("home.html")
 
 
 @app.route("/lyrics")
 def lyrics_page():
+    _record_usage("lyrics_page", "view")
     return render_template("lyrics.html")
 
 
 @app.route("/ai-video")
 def ai_video_page():
+    _record_usage("ai_video_page", "view")
     return render_template("ai-video.html")
+
+
+@app.route("/admin/usage")
+def admin_usage_page():
+    if not _admin_authorized():
+        return "Forbidden", 403
+    return render_template("admin_usage.html", data=_usage_summary(), token=request.args.get("token", ""))
+
+
+@app.route("/api/admin/usage")
+def admin_usage_api():
+    if not _admin_authorized():
+        return jsonify({"success": False, "message": "Forbidden"}), 403
+    return jsonify({"success": True, **_usage_summary(limit=int(request.args.get("limit", 100)))})
 
 
 @app.route("/upload", methods=["POST"])
@@ -141,6 +316,11 @@ def upload():
     try:
         video_file = request.files.get("video")
         lrc_file = request.files.get("lrc")
+        _record_usage(
+            "lyrics_overlay",
+            "started",
+            details={"video": _file_meta(video_file), "lrc": _file_meta(lrc_file)},
+        )
 
         if not video_file or video_file.filename == "":
             return jsonify({"success": False, "message": "请上传视频文件"})
@@ -190,6 +370,7 @@ def upload():
         )
 
         if result.returncode == 0:
+            _record_usage("lyrics_overlay", "success", job_id=task_id, details={"output": f"{task_id}_output.mp4"})
             return jsonify(
                 {
                     "success": True,
@@ -201,6 +382,7 @@ def upload():
         return jsonify({"success": False, "message": f"视频生成失败: {result.stderr}"})
 
     except Exception as exc:
+        _record_usage("lyrics_overlay", "failed", details={"error": str(exc)})
         return jsonify({"success": False, "message": str(exc)})
 
 
@@ -246,6 +428,17 @@ def _save_upload(file_storage, path):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     file_storage.save(path)
     return path
+
+
+def _save_lrc_upload_or_text(file_storage, text, path):
+    if file_storage and file_storage.filename:
+        return _save_upload(file_storage, path)
+    if text:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as file_obj:
+            file_obj.write(text)
+        return path
+    return None
 
 
 def _run_split_video_job(job_id, options):
@@ -365,8 +558,15 @@ def _run_split_video_job(job_id, options):
             download_url=f"/download/{output_path.name}",
             manifest=str(work_dir / "manifest.json"),
         )
+        _record_job_usage(
+            job_id,
+            "split_mv_generate",
+            "success",
+            details={"output": output_path.name, "split": split_info},
+        )
     except Exception as exc:
         _set_split_job(job_id, status="FAILED", progress=0, message=str(exc))
+        _record_job_usage(job_id, "split_mv_generate", "failed", details={"error": str(exc)})
 
 
 @app.route("/api/get-app-info", methods=["GET"])
@@ -374,6 +574,7 @@ def get_app_info():
     try:
         api_key = request.args.get("apiKey")
         webapp_id = request.args.get("webappId")
+        _record_usage("runninghub_app_info", "started", details={"webappId": webapp_id})
 
         if not api_key or not webapp_id:
             return jsonify({"success": False, "message": "请提供 API Key 和 WebApp ID"})
@@ -393,6 +594,7 @@ def get_app_info():
             return jsonify({"success": False, "message": result.get("msg", "获取应用信息失败")})
 
         data = result.get("data", {})
+        _record_usage("runninghub_app_info", "success", details={"webappId": webapp_id})
         return jsonify(
             {
                 "success": True,
@@ -403,6 +605,7 @@ def get_app_info():
         )
 
     except Exception as exc:
+        _record_usage("runninghub_app_info", "failed", details={"error": str(exc)})
         return jsonify({"success": False, "message": str(exc)})
 
 
@@ -420,6 +623,15 @@ def generate_video():
         instance_type = request.form.get("instanceType")
         access_password = request.form.get("accessPassword")
         use_personal_queue = request.form.get("usePersonalQueue")
+        _record_usage(
+            "single_video_generate",
+            "started",
+            details={
+                "workflowId": workflow_id,
+                "image": _file_meta(request.files.get("image") or request.files.get("file")),
+                "audio": _file_meta(request.files.get("audio")),
+            },
+        )
 
         if not api_key or not workflow_id:
             return jsonify({"success": False, "message": "请提供 API Key 和 Workflow ID"})
@@ -470,6 +682,7 @@ def generate_video():
             return jsonify({"success": False, "message": result.get("msg", "任务创建失败")})
 
         data = result.get("data", {})
+        _record_usage("single_video_generate", "task_created", task_id=data.get("taskId"), details={"workflowId": workflow_id})
         return jsonify(
             {
                 "success": True,
@@ -485,9 +698,11 @@ def generate_video():
         )
 
     except Exception as exc:
+        _record_usage("single_video_generate", "failed", details={"error": str(exc)})
         return jsonify({"success": False, "message": str(exc)})
 
 
+@app.route("/api/mv/generate", methods=["POST"])
 @app.route("/api/generate-split-video", methods=["POST"])
 def generate_split_video():
     try:
@@ -505,10 +720,14 @@ def generate_split_video():
         image_file = request.files.get("image") or request.files.get("file")
         audio_file = request.files.get("audio")
         lrc_file = request.files.get("lrc")
+        lrc_text = request.form.get("lrcText") or request.form.get("lrc")
+        lrc_required = request.path == "/api/mv/generate"
         if not image_file or image_file.filename == "":
             return jsonify({"success": False, "message": "Please upload an image"})
         if not audio_file or audio_file.filename == "":
             return jsonify({"success": False, "message": "Please upload an audio file"})
+        if lrc_required and not (lrc_file and lrc_file.filename) and not lrc_text:
+            return jsonify({"success": False, "message": "Please provide lrc file or lrcText"})
 
         try:
             node_info_list = json.loads(node_info_list_json)
@@ -525,12 +744,11 @@ def generate_split_video():
         output_path = os.path.join(app.config["OUTPUT_FOLDER"], f"{job_id}_split_output.mp4")
         image_path = os.path.join(upload_dir, f"image{image_ext}")
         audio_path = os.path.join(upload_dir, f"audio{audio_ext}")
-        lrc_path = os.path.join(upload_dir, "lyrics.lrc") if lrc_file and lrc_file.filename else None
+        lrc_path = os.path.join(upload_dir, "lyrics.lrc")
 
         _save_upload(image_file, image_path)
         _save_upload(audio_file, audio_path)
-        if lrc_path:
-            _save_upload(lrc_file, lrc_path)
+        lrc_path = _save_lrc_upload_or_text(lrc_file, lrc_text, lrc_path)
 
         options = {
             "api_key": api_key,
@@ -569,15 +787,39 @@ def generate_split_video():
             message="Split generation queued",
             created_at=time.time(),
         )
+        _record_usage(
+            "split_mv_generate",
+            "started",
+            job_id=job_id,
+            details={
+                "endpoint": request.path,
+                "workflowId": workflow_id,
+                "image": _file_meta(image_file),
+                "audio": _file_meta(audio_file),
+                "has_lrc": bool(lrc_path),
+                "overlapSeconds": options["overlap_seconds"],
+                "xfadeSeconds": options["xfade_seconds"],
+            },
+        )
         thread = threading.Thread(target=_run_split_video_job, args=(job_id, options), daemon=True)
         thread.start()
 
-        return jsonify({"success": True, "jobId": job_id, "message": "Split generation started"})
+        return jsonify(
+            {
+                "success": True,
+                "jobId": job_id,
+                "message": "Split generation started",
+                "statusUrl": f"/api/mv/status/{job_id}",
+                "legacyStatusUrl": f"/api/split-job-status/{job_id}",
+            }
+        )
 
     except Exception as exc:
+        _record_usage("split_mv_generate", "failed", details={"endpoint": request.path, "error": str(exc)})
         return jsonify({"success": False, "message": str(exc)})
 
 
+@app.route("/api/mv/status/<job_id>", methods=["GET"])
 @app.route("/api/split-job-status/<job_id>", methods=["GET"])
 def split_job_status(job_id):
     job = _get_split_job(job_id)

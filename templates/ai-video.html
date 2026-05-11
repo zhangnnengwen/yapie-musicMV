@@ -400,6 +400,11 @@
                         <label for="apiKey">API Key *</label>
                         <input type="text" id="apiKey" autocomplete="off" placeholder="输入 RunningHub API Key">
                     </div>
+                    <div class="form-group">
+                        <label for="userId">使用者标识</label>
+                        <input type="text" id="userId" autocomplete="off" placeholder="例如客户名、手机号后四位、内部账号">
+                        <div class="hint">用于后台统计谁在使用哪个功能；不填时后台会记录 IP。</div>
+                    </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="workflowId">Workflow ID *</label>
@@ -602,9 +607,11 @@
             formData.append('image', selectedImage);
             formData.append('audio', selectedAudio);
 
+            const userId = document.getElementById('userId').value.trim();
             const retainSeconds = document.getElementById('retainSeconds').value.trim();
             const instanceType = document.getElementById('instanceType').value.trim();
             const accessPassword = document.getElementById('accessPassword').value.trim();
+            if (userId) formData.append('userId', userId);
             if (retainSeconds) formData.append('retainSeconds', retainSeconds);
             if (instanceType) formData.append('instanceType', instanceType);
             if (accessPassword) formData.append('accessPassword', accessPassword);
