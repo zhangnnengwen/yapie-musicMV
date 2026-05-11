@@ -374,7 +374,16 @@
 <body>
     <div class="topbar">
         <a class="brand" href="/">音乐 MV 工具</a>
-        <a class="back-link" href="/">返回首页</a>
+        <div class="btn-row">
+            {% if current_user %}
+            <span class="hint">当前用户：{{ current_user.username }}</span>
+            {% if current_user.role == 'admin' %}
+            <a class="back-link" href="/admin/usage">后台管理</a>
+            {% endif %}
+            {% endif %}
+            <a class="back-link" href="/">返回首页</a>
+            <a class="back-link" href="/logout">退出登录</a>
+        </div>
     </div>
 
     <main class="container">
@@ -402,8 +411,8 @@
                     </div>
                     <div class="form-group">
                         <label for="userId">使用者标识</label>
-                        <input type="text" id="userId" autocomplete="off" placeholder="例如客户名、手机号后四位、内部账号">
-                        <div class="hint">用于后台统计谁在使用哪个功能；不填时后台会记录 IP。</div>
+                        <input type="text" id="userId" autocomplete="off" value="{{ current_user.username if current_user else '' }}" readonly>
+                        <div class="hint">后台统计会优先绑定当前登录账号。</div>
                     </div>
                     <div class="form-row">
                         <div class="form-group">

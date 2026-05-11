@@ -10,11 +10,13 @@ import threading
 import time
 import uuid
 from datetime import datetime
+from functools import wraps
 from pathlib import Path
 from types import SimpleNamespace
 
 import requests
-from flask import Flask, jsonify, render_template, request, send_from_directory, url_for
+from flask import Flask, g, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import split_runninghub_mv as split_mv
 
@@ -23,6 +25,7 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["OUTPUT_FOLDER"] = "outputs"
 app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "change-this-secret-key")
 
 API_BASE_URL = "https://www.runninghub.cn"
 DEFAULT_WORKFLOW_ID = "2025258518208737281"
@@ -48,6 +51,9 @@ split_jobs = {}
 split_jobs_lock = threading.Lock()
 USAGE_DB_PATH = os.path.join(app.config["OUTPUT_FOLDER"], "usage.db")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin")
+DEFAULT_ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+DEFAULT_ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
+ALLOW_REGISTRATION = os.getenv("ALLOW_REGISTRATION", "1").lower() in {"1", "true", "yes", "on"}
 
 
 def _now_iso():
@@ -75,6 +81,40 @@ def _init_usage_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_created_at ON usage_events(created_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_feature ON usage_events(feature)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_usage_user_id ON usage_events(user_id)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        user_columns = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "active" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        configured_admin = conn.execute(
+            "SELECT id FROM users WHERE username = ? AND role = 'admin' LIMIT 1",
+            (DEFAULT_ADMIN_USERNAME,),
+        ).fetchone()
+        admin_exists = conn.execute("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1").fetchone()
+        if configured_admin and "ADMIN_PASSWORD" in os.environ:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (generate_password_hash(DEFAULT_ADMIN_PASSWORD), configured_admin[0]),
+            )
+        elif not admin_exists:
+            conn.execute(
+                """
+                INSERT INTO users (username, password_hash, role, created_at)
+                VALUES (?, ?, 'admin', ?)
+                """,
+                (DEFAULT_ADMIN_USERNAME, generate_password_hash(DEFAULT_ADMIN_PASSWORD), _now_iso()),
+            )
 
 
 def _client_ip():
@@ -85,6 +125,8 @@ def _client_ip():
 
 
 def _usage_user_id():
+    if getattr(g, "current_user", None):
+        return g.current_user["username"]
     return (
         request.headers.get("X-User-Id")
         or request.form.get("userId")
@@ -93,6 +135,160 @@ def _usage_user_id():
         or request.args.get("user_id")
         or ""
     )
+
+
+def _db_row_to_dict(row):
+    return dict(row) if row else None
+
+
+def _get_user_by_id(user_id):
+    if not user_id:
+        return None
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        return _db_row_to_dict(conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone())
+
+
+def _get_user_by_username(username):
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        return _db_row_to_dict(conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone())
+
+
+def _create_user(username, password, role="user"):
+    username = (username or "").strip()
+    if not username or not password:
+        raise ValueError("请输入用户名和密码")
+    if len(username) > 64:
+        raise ValueError("用户名不能超过 64 个字符")
+    if role not in {"user", "admin"}:
+        raise ValueError("角色只能是普通用户或管理员")
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO users (username, password_hash, role, active, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            """,
+            (username, generate_password_hash(password), role, _now_iso()),
+        )
+
+
+def _admin_count(exclude_user_id=None):
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        if exclude_user_id is None:
+            row = conn.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND active = 1").fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin' AND active = 1 AND id != ?",
+                (exclude_user_id,),
+            ).fetchone()
+    return int(row[0] or 0)
+
+
+def _admin_users_data():
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        return [dict(row) for row in conn.execute(
+            """
+            SELECT
+                u.id,
+                u.username,
+                u.role,
+                u.active,
+                u.created_at,
+                COUNT(e.id) AS usage_count,
+                MAX(e.created_at) AS last_seen
+            FROM users u
+            LEFT JOIN usage_events e ON e.user_id = u.username
+            GROUP BY u.id, u.username, u.role, u.active, u.created_at
+            ORDER BY u.role = 'admin' DESC, u.active DESC, u.created_at DESC
+            """
+        )]
+
+
+@app.before_request
+def _load_current_user():
+    g.current_user = _get_user_by_id(session.get("user_id"))
+
+
+def _wants_json():
+    return request.path.startswith("/api/") or "application/json" in request.headers.get("Accept", "")
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not g.current_user:
+            if _wants_json():
+                return jsonify({"success": False, "message": "Login required"}), 401
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not g.current_user:
+            if _wants_json():
+                return jsonify({"success": False, "message": "Admin login required"}), 401
+            return redirect(url_for("admin_login", next=request.path))
+        if g.current_user["role"] != "admin":
+            if _wants_json():
+                return jsonify({"success": False, "message": "Forbidden"}), 403
+            return "Forbidden", 403
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def _current_username():
+    return g.current_user["username"] if getattr(g, "current_user", None) else ""
+
+
+def _current_user_id():
+    return g.current_user["id"] if getattr(g, "current_user", None) else None
+
+
+def _can_access_task(task_id):
+    if getattr(g, "current_user", None) and g.current_user["role"] == "admin":
+        return True
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM usage_events WHERE task_id = ? AND user_id = ? LIMIT 1",
+            (task_id, _current_username()),
+        ).fetchone()
+    return bool(row)
+
+
+def _can_access_split_job(job):
+    if not job:
+        return False
+    if getattr(g, "current_user", None) and g.current_user["role"] == "admin":
+        return True
+    return job.get("owner_user_id") == _current_user_id()
+
+
+def _can_access_output(filename):
+    if getattr(g, "current_user", None) and g.current_user["role"] == "admin":
+        return True
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM usage_events
+            WHERE user_id = ? AND details LIKE ?
+            LIMIT 1
+            """,
+            (_current_username(), f"%{filename}%"),
+        ).fetchone()
+    return bool(row)
+
+
+def _safe_next(default_endpoint):
+    next_url = request.args.get("next")
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return next_url
+    return url_for(default_endpoint)
 
 
 def _record_usage(feature, status="started", *, job_id=None, task_id=None, details=None):
@@ -152,6 +348,8 @@ def _record_job_usage(job_id, feature, status, *, details=None):
 
 
 def _admin_authorized():
+    if getattr(g, "current_user", None) and g.current_user["role"] == "admin":
+        return True
     token = request.args.get("token") or request.headers.get("X-Admin-Token")
     return bool(ADMIN_TOKEN) and token == ADMIN_TOKEN
 
@@ -279,39 +477,182 @@ def _file_meta(file_storage):
     }
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = _get_user_by_username(username)
+        if user and user["active"] and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            _record_usage("login", "success", details={"username": username})
+            return redirect(_safe_next("home"))
+        _record_usage("login", "failed", details={"username": username})
+        return render_template("login.html", error="用户名或密码错误", allow_registration=ALLOW_REGISTRATION)
+    return render_template("login.html", allow_registration=ALLOW_REGISTRATION)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if not ALLOW_REGISTRATION:
+        return "Registration disabled", 403
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+        if password != confirm_password:
+            return render_template("register.html", error="两次输入的密码不一致")
+        try:
+            _create_user(username, password, role="user")
+        except sqlite3.IntegrityError:
+            return render_template("register.html", error="用户名已存在")
+        except ValueError as exc:
+            return render_template("register.html", error=str(exc))
+        _record_usage("register", "success", details={"username": username})
+        return redirect(url_for("login"))
+    return render_template("register.html")
+
+
+@app.route("/logout")
+def logout():
+    _record_usage("logout", "success")
+    session.clear()
+    return redirect(url_for("login"))
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = _get_user_by_username(username)
+        if user and user["active"] and user["role"] == "admin" and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            _record_usage("admin_login", "success", details={"username": username})
+            return redirect(_safe_next("admin_usage_page"))
+        _record_usage("admin_login", "failed", details={"username": username})
+        return render_template("admin_login.html", error="管理员账号或密码错误")
+    return render_template("admin_login.html")
+
+
 @app.route("/")
+@login_required
 def home():
     _record_usage("home_page", "view")
-    return render_template("home.html")
+    return render_template("home.html", current_user=g.current_user)
 
 
 @app.route("/lyrics")
+@login_required
 def lyrics_page():
     _record_usage("lyrics_page", "view")
-    return render_template("lyrics.html")
+    return render_template("lyrics.html", current_user=g.current_user)
 
 
 @app.route("/ai-video")
+@login_required
 def ai_video_page():
     _record_usage("ai_video_page", "view")
-    return render_template("ai-video.html")
+    return render_template("ai-video.html", current_user=g.current_user)
 
 
 @app.route("/admin/usage")
+@admin_required
 def admin_usage_page():
-    if not _admin_authorized():
-        return "Forbidden", 403
-    return render_template("admin_usage.html", data=_usage_summary(), token=request.args.get("token", ""))
+    return render_template("admin_usage.html", data=_usage_summary(), token=request.args.get("token", ""), current_user=g.current_user)
 
 
 @app.route("/api/admin/usage")
+@admin_required
 def admin_usage_api():
-    if not _admin_authorized():
-        return jsonify({"success": False, "message": "Forbidden"}), 403
     return jsonify({"success": True, **_usage_summary(limit=int(request.args.get("limit", 100)))})
 
 
+@app.route("/admin/users", methods=["GET", "POST"])
+@admin_required
+def admin_users_page():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        role = request.form.get("role", "user")
+        try:
+            _create_user(username, password, role=role)
+            _record_usage("admin_user_manage", "created", details={"username": username, "role": role})
+            return redirect(url_for("admin_users_page", message="账号已创建"))
+        except sqlite3.IntegrityError:
+            return redirect(url_for("admin_users_page", error="用户名已存在"))
+        except ValueError as exc:
+            return redirect(url_for("admin_users_page", error=str(exc)))
+
+    return render_template(
+        "admin_users.html",
+        users=_admin_users_data(),
+        current_user=g.current_user,
+        message=request.args.get("message"),
+        error=request.args.get("error"),
+    )
+
+
+@app.route("/admin/users/<int:user_id>/update", methods=["POST"])
+@admin_required
+def admin_update_user(user_id):
+    user = _get_user_by_id(user_id)
+    if not user:
+        return redirect(url_for("admin_users_page", error="账号不存在"))
+
+    role = request.form.get("role", user["role"])
+    active = request.form.get("active") == "1"
+    password = request.form.get("password", "").strip()
+    if role not in {"user", "admin"}:
+        return redirect(url_for("admin_users_page", error="角色不合法"))
+    if user_id == _current_user_id() and (role != "admin" or not active):
+        return redirect(url_for("admin_users_page", error="不能取消自己的管理员权限或禁用自己"))
+    if user["role"] == "admin" and (role != "admin" or not active) and _admin_count(exclude_user_id=user_id) == 0:
+        return redirect(url_for("admin_users_page", error="至少需要保留一个启用的管理员账号"))
+
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.execute(
+            "UPDATE users SET role = ?, active = ? WHERE id = ?",
+            (role, 1 if active else 0, user_id),
+        )
+        if password:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (generate_password_hash(password), user_id),
+            )
+    _record_usage(
+        "admin_user_manage",
+        "updated",
+        details={"username": user["username"], "role": role, "active": active, "password_reset": bool(password)},
+    )
+    return redirect(url_for("admin_users_page", message="账号已更新"))
+
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    user = _get_user_by_id(user_id)
+    if not user:
+        return redirect(url_for("admin_users_page", error="账号不存在"))
+    if user_id == _current_user_id():
+        return redirect(url_for("admin_users_page", error="不能删除当前登录账号"))
+    if user["role"] == "admin" and _admin_count(exclude_user_id=user_id) == 0:
+        return redirect(url_for("admin_users_page", error="至少需要保留一个启用的管理员账号"))
+
+    with sqlite3.connect(USAGE_DB_PATH) as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    _record_usage("admin_user_manage", "deleted", details={"username": user["username"], "role": user["role"]})
+    return redirect(url_for("admin_users_page", message="账号已删除"))
+
+
 @app.route("/upload", methods=["POST"])
+@login_required
 def upload():
     try:
         video_file = request.files.get("video")
@@ -387,12 +728,18 @@ def upload():
 
 
 @app.route("/download/<filename>")
+@login_required
 def download(filename):
+    if not _can_access_output(filename):
+        return "Forbidden", 403
     return send_from_directory(app.config["OUTPUT_FOLDER"], filename, as_attachment=True)
 
 
 @app.route("/preview/<filename>")
+@login_required
 def preview(filename):
+    if not _can_access_output(filename):
+        return "Forbidden", 403
     return send_from_directory(app.config["OUTPUT_FOLDER"], filename, as_attachment=False)
 
 
@@ -570,6 +917,7 @@ def _run_split_video_job(job_id, options):
 
 
 @app.route("/api/get-app-info", methods=["GET"])
+@login_required
 def get_app_info():
     try:
         api_key = request.args.get("apiKey")
@@ -610,6 +958,7 @@ def get_app_info():
 
 
 @app.route("/api/generate-video", methods=["POST"])
+@login_required
 def generate_video():
     try:
         api_key = request.form.get("apiKey")
@@ -704,6 +1053,7 @@ def generate_video():
 
 @app.route("/api/mv/generate", methods=["POST"])
 @app.route("/api/generate-split-video", methods=["POST"])
+@login_required
 def generate_split_video():
     try:
         api_key = request.form.get("apiKey")
@@ -786,6 +1136,8 @@ def generate_split_video():
             progress=3,
             message="Split generation queued",
             created_at=time.time(),
+            owner_user_id=_current_user_id(),
+            owner_username=_current_username(),
         )
         _record_usage(
             "split_mv_generate",
@@ -821,20 +1173,26 @@ def generate_split_video():
 
 @app.route("/api/mv/status/<job_id>", methods=["GET"])
 @app.route("/api/split-job-status/<job_id>", methods=["GET"])
+@login_required
 def split_job_status(job_id):
     job = _get_split_job(job_id)
     if not job:
         return jsonify({"success": False, "message": "Split job not found"}), 404
+    if not _can_access_split_job(job):
+        return jsonify({"success": False, "message": "Forbidden"}), 403
     return jsonify({"success": True, **job})
 
 
 @app.route("/api/task-status/<task_id>", methods=["GET"])
+@login_required
 def get_task_status(task_id):
     try:
         api_key = request.args.get("apiKey")
 
         if not api_key:
             return jsonify({"success": False, "message": "请提供 API Key"})
+        if not _can_access_task(task_id):
+            return jsonify({"success": False, "message": "Forbidden"}), 403
 
         result = _runninghub_post(
             "/task/openapi/outputs",

@@ -124,9 +124,15 @@
         <div class="topbar">
             <div>
                 <h1>后台使用记录</h1>
-                <div class="muted">查看谁在使用哪个功能，以及最近任务状态。</div>
+                <div class="muted">查看谁在使用哪个功能，以及最近任务状态。当前管理员：{{ current_user.username if current_user else 'token' }}</div>
             </div>
-            <a href="/ai-video">返回生成器</a>
+            <div>
+                <a href="/admin/users">账号管理</a>
+                <span class="muted"> / </span>
+                <a href="/ai-video">返回生成器</a>
+                <span class="muted"> / </span>
+                <a href="/logout">退出登录</a>
+            </div>
         </div>
 
         <div class="grid">

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账号管理</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            padding: 28px 18px;
+            background: #f4f7f6;
+            color: #172033;
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+
+        .wrap {
+            width: min(1180px, 100%);
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            letter-spacing: 0;
+        }
+
+        a {
+            color: #0f766e;
+            text-decoration: none;
+            font-weight: 800;
+        }
+
+        .panel {
+            margin-bottom: 18px;
+            padding: 20px;
+            border: 1px solid rgba(23, 32, 51, 0.1);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 12px 28px rgba(23, 32, 51, 0.06);
+        }
+
+        .panel h2 {
+            margin-bottom: 14px;
+            font-size: 18px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 140px auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #526173;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        input,
+        select {
+            width: 100%;
+            min-height: 38px;
+            padding: 8px 10px;
+            border: 1px solid rgba(23, 32, 51, 0.14);
+            border-radius: 8px;
+            background: #fff;
+            color: #172033;
+            font-size: 13px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #0f766e;
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+        }
+
+        button {
+            min-height: 38px;
+            padding: 0 12px;
+            border: none;
+            border-radius: 8px;
+            background: #172033;
+            color: #fff;
+            font-weight: 800;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .danger {
+            background: #c2410c;
+        }
+
+        .ghost {
+            border: 1px solid rgba(23, 32, 51, 0.14);
+            background: #fff;
+            color: #526173;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th,
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(23, 32, 51, 0.08);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: #526173;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 6px;
+            background: rgba(15, 118, 110, 0.1);
+            color: #0f766e;
+            font-weight: 800;
+        }
+
+        .badge.off {
+            background: #fff2f0;
+            color: #c2410c;
+        }
+
+        .muted {
+            color: #526173;
+        }
+
+        .notice,
+        .error {
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .notice {
+            background: rgba(15, 118, 110, 0.1);
+            color: #0f766e;
+        }
+
+        .error {
+            background: #fff2f0;
+            color: #c2410c;
+        }
+
+        .inline-form {
+            display: grid;
+            grid-template-columns: 110px 90px 90px minmax(130px, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 980px) {
+            .form-grid,
+            .inline-form {
+                grid-template-columns: 1fr;
+            }
+
+            .panel {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <div>
+                <h1>账号管理</h1>
+                <div class="muted">当前管理员：{{ current_user.username }}</div>
+            </div>
+            <div>
+                <a href="/admin/usage">使用统计</a>
+                <span class="muted"> / </span>
+                <a href="/ai-video">返回生成器</a>
+                <span class="muted"> / </span>
+                <a href="/logout">退出登录</a>
+            </div>
+        </div>
+
+        {% if message %}<div class="notice">{{ message }}</div>{% endif %}
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+        <section class="panel">
+            <h2>新增账号</h2>
+            <form method="post" class="form-grid">
+                <div>
+                    <label for="username">用户名</label>
+                    <input id="username" name="username" autocomplete="off" required>
+                </div>
+                <div>
+                    <label for="password">初始密码</label>
+                    <input id="password" name="password" type="password" autocomplete="new-password" required>
+                </div>
+                <div>
+                    <label for="role">角色</label>
+                    <select id="role" name="role">
+                        <option value="user">普通用户</option>
+                        <option value="admin">管理员</option>
+                    </select>
+                </div>
+                <button type="submit">创建账号</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>账号列表</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>角色</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>使用次数</th>
+                        <th>最近使用</th>
+                        <th>管理</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>
+                            {{ user.username }}
+                            {% if user.id == current_user.id %}
+                            <span class="muted">（当前）</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="badge">{{ '管理员' if user.role == 'admin' else '普通用户' }}</span></td>
+                        <td><span class="badge {{ '' if user.active else 'off' }}">{{ '启用' if user.active else '禁用' }}</span></td>
+                        <td>{{ user.created_at }}</td>
+                        <td>{{ user.usage_count }}</td>
+                        <td>{{ user.last_seen or '-' }}</td>
+                        <td>
+                            <form method="post" action="/admin/users/{{ user.id }}/update" class="inline-form">
+                                <select name="role">
+                                    <option value="user" {% if user.role == 'user' %}selected{% endif %}>普通用户</option>
+                                    <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>管理员</option>
+                                </select>
+                                <select name="active">
+                                    <option value="1" {% if user.active %}selected{% endif %}>启用</option>
+                                    <option value="0" {% if not user.active %}selected{% endif %}>禁用</option>
+                                </select>
+                                <input name="password" type="password" placeholder="新密码">
+                                <button type="submit">保存</button>
+                            </form>
+                            <form method="post" action="/admin/users/{{ user.id }}/delete" class="actions" style="margin-top: 8px;">
+                                <button class="danger" type="submit" onclick="return confirm('确定删除这个账号吗？历史使用记录会保留用户名。')">删除账号</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="muted">暂无账号</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    </div>
+</body>
+</html>

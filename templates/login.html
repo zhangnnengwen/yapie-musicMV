@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: #f4f7f6;
+            color: #172033;
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        }
+        .card {
+            width: min(420px, 100%);
+            padding: 28px;
+            border: 1px solid rgba(23, 32, 51, 0.1);
+            border-radius: 8px;
+            background: #fff;
+            box-shadow: 0 16px 36px rgba(23, 32, 51, 0.08);
+        }
+        h1 { margin-bottom: 8px; font-size: 26px; letter-spacing: 0; }
+        p { margin-bottom: 22px; color: #526173; font-size: 14px; line-height: 1.6; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 800; }
+        input {
+            width: 100%;
+            min-height: 44px;
+            margin-bottom: 16px;
+            padding: 10px 12px;
+            border: 1px solid rgba(23, 32, 51, 0.14);
+            border-radius: 8px;
+            outline: none;
+            font-size: 14px;
+        }
+        input:focus { border-color: #0f766e; box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12); }
+        .error {
+            margin-bottom: 14px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #fff2f0;
+            color: #c2410c;
+            font-size: 13px;
+        }
+        button, .link-btn {
+            width: 100%;
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 8px;
+            background: #172033;
+            color: #fff;
+            font-weight: 800;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .secondary {
+            margin-top: 12px;
+            border: 1px solid rgba(23, 32, 51, 0.14);
+            background: #fff;
+            color: #526173;
+        }
+        .admin-link { display: block; margin-top: 16px; color: #0f766e; font-size: 13px; text-align: center; text-decoration: none; font-weight: 800; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <h1>用户登录</h1>
+        <p>登录后使用 MV 生成、歌词合成等功能。后台会按账号隔离任务和统计记录。</p>
+        {% if error %}<div class="error">{{ error }}</div>{% endif %}
+        <form method="post">
+            <label for="username">用户名</label>
+            <input id="username" name="username" autocomplete="username" required>
+            <label for="password">密码</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit">登录</button>
+        </form>
+        {% if allow_registration %}
+        <a class="link-btn secondary" href="/register">注册普通用户</a>
+        {% endif %}
+        <a class="admin-link" href="/admin/login">管理员登录</a>
+    </main>
+</body>
+</html>
